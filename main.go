@@ -16,6 +16,7 @@ import (
 
 const (
 	DEFAULT_PORT              = "8080"
+	FORWARDED_FOR_HEADER      = "X-Forwarded-For"
 	CF_FORWARDED_URL_HEADER   = "X-Cf-Forwarded-Url"
 	CF_PROXY_SIGNATURE_HEADER = "X-Cf-Proxy-Signature"
 )
@@ -50,6 +51,7 @@ func main() {
 func NewProxy(transport http.RoundTripper, skipSslValidation bool) http.Handler {
 	reverseProxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
+			forwardedFOR := req.Header.Get(FORWARDED_FOR_HEADER)
 			forwardedURL := req.Header.Get(CF_FORWARDED_URL_HEADER)
 			sigHeader := req.Header.Get(CF_PROXY_SIGNATURE_HEADER)
 
@@ -62,7 +64,7 @@ func NewProxy(transport http.RoundTripper, skipSslValidation bool) http.Handler 
 				}
 				req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 			}
-			logRequest(forwardedURL, sigHeader, string(body), req.Header, skipSslValidation)
+			logRequest(forwardedFOR, forwardedURL, sigHeader, string(body), req.Header, skipSslValidation)
 
 			err = sleep()
 			if err != nil {
@@ -83,9 +85,10 @@ func NewProxy(transport http.RoundTripper, skipSslValidation bool) http.Handler 
 	return reverseProxy
 }
 
-func logRequest(forwardedURL, sigHeader, body string, headers http.Header, skipSslValidation bool) {
+func logRequest(forwardedFOR, forwardedURL, sigHeader, body string, headers http.Header, skipSslValidation bool) {
 	log.Printf("Skip ssl validation set to %t", skipSslValidation)
 	log.Println("Received request: ")
+	log.Printf("%s: %s\n", FORWARDED_FOR_HEADER, forwardedFOR)
 	log.Printf("%s: %s\n", CF_FORWARDED_URL_HEADER, forwardedURL)
 	log.Printf("%s: %s\n", CF_PROXY_SIGNATURE_HEADER, sigHeader)
 	log.Println("")
@@ -113,16 +116,15 @@ func (lrt *LoggingRoundTripper) RoundTrip(request *http.Request) (*http.Response
 	var err error
 	var res *http.Response
 	
-	remoteIP := strings.Split(request.RemoteAddr, ":")[0]
-	forwardedURL := request.Header.Get(CF_FORWARDED_URL_HEADER)
+	forwardedFOR := request.Header.Get(FORWARDED_FOR_HEADER)
+	remoteIP := strings.Split(forwardedFOR, ", ")[0]
 
 	log.Println("")
-	log.Printf("Remote Address: %#v\n", request.RemoteAddr)
-	log.Printf("Forwarded Address: %#v\n", forwardedURL)
+	log.Printf("Remote Address: %#v\n", remoteIP)
 	
 	if (len(lrt.limit) > 0) && (lrt.limit != remoteIP) {
 		log.Println("")
-		log.Printf("Denying request from [%s]\n", remoteIP)
+		log.Printf("Denying request for [%s]\n", remoteIP)
 		resp := &http.Response{
 			StatusCode: 403,
 			Body:       ioutil.NopCloser(bytes.NewBufferString("Forbidden")),
