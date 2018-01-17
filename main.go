@@ -114,10 +114,15 @@ func (lrt *LoggingRoundTripper) RoundTrip(request *http.Request) (*http.Response
 	var res *http.Response
 	
 	remoteIP := strings.Split(request.RemoteAddr, ":")[0]
+	forwardedURL := request.Header.Get(CF_FORWARDED_URL_HEADER)
 
-	log.Printf("Request from [%s]\n", remoteIP)
+	log.Println("")
+	log.Printf("Remote Address: %#v\n", request.RemoteAddr)
+	log.Printf("Forwarded Address: %#v\n", forwardedURL)
 	
 	if (len(lrt.limit) > 0) && (lrt.limit != remoteIP) {
+		log.Println("")
+		log.Printf("Denying request from [%s]\n", remoteIP)
 		resp := &http.Response{
 			StatusCode: 403,
 			Body:       ioutil.NopCloser(bytes.NewBufferString("Forbidden")),
