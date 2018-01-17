@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"strings"
 )
 
 const (
@@ -21,20 +22,26 @@ const (
 
 func main() {
 	var (
+		limit             string
 		port              string
 		skipSslValidation bool
 		err               error
 	)
-
+	
+	log.SetOutput(os.Stdout)
+	
+	limit = os.Getenv("IP_LIMIT")
+	if len(limit) != 0 {
+		log.Printf("Limiting ip access to: [%d]\n", limit)
+	}
 	if port = os.Getenv("PORT"); len(port) == 0 {
 		port = DEFAULT_PORT
 	}
 	if skipSslValidation, err = strconv.ParseBool(os.Getenv("SKIP_SSL_VALIDATION")); err != nil {
 		skipSslValidation = true
 	}
-	log.SetOutput(os.Stdout)
 
-	roundTripper := NewLoggingRoundTripper(skipSslValidation)
+	roundTripper := NewLoggingRoundTripper(limit, skipSslValidation)
 	proxy := NewProxy(roundTripper, skipSslValidation)
 
 	log.Fatal(http.ListenAndServe(":"+port, proxy))
@@ -89,21 +96,35 @@ func logRequest(forwardedURL, sigHeader, body string, headers http.Header, skipS
 
 type LoggingRoundTripper struct {
 	transport http.RoundTripper
+	limit string
 }
 
-func NewLoggingRoundTripper(skipSslValidation bool) *LoggingRoundTripper {
+func NewLoggingRoundTripper(ipLimit string, skipSslValidation bool) *LoggingRoundTripper {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: skipSslValidation},
 	}
 	return &LoggingRoundTripper{
 		transport: tr,
+		limit: ipLimit,
 	}
 }
 
 func (lrt *LoggingRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	var err error
 	var res *http.Response
+	
+	remoteIP := strings.Split(request.RemoteAddr, ":")[0]
 
+	log.Printf("Request from [%s]\n", remoteIP)
+	
+	if (len(lrt.limit) > 0) && (lrt.limit != remoteIP) {
+		resp := &http.Response{
+			StatusCode: 403,
+			Body:       ioutil.NopCloser(bytes.NewBufferString("Forbidden")),
+		}
+		return resp, nil
+	}
+	
 	log.Printf("Forwarding to: %s\n", request.URL.String())
 	res, err = lrt.transport.RoundTrip(request)
 	if err != nil {

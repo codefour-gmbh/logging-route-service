@@ -2,4 +2,4 @@
 applications:
 - env:
     GOVERSION: go1.9
-    GOPACKAGENAME: github.com/cloudfoundry-samples/logging-route-service
+    GOPACKAGENAME: github.com/codefour-gmbh/logging-route-service
