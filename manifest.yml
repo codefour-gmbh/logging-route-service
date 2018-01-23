@@ -1,8 +1,5 @@
 ---
 applications:
-- name: ip-route-prod
-  memory: 64M
-  instances: 1
 - env:
     GOVERSION: go1.9
     GOPACKAGENAME: github.com/codefour-gmbh/logging-route-service
