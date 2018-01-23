@@ -19,6 +19,16 @@ This example route service uses the new headers/features that have been added to
 - Bind the route service to the route (domain/hostname)
 - Tail the logs of this route service in order to verify that requests to your app go through the route service. The example logging route service will log requests and responses to and from your app.
 
+Example [Swisscom Tutorial](https://ict.swisscom.ch/2016/10/cloud-foundry-route-services/):
+```sh
+cf push logging-router -m 64M
+cf push my-main-app
+cf create-user-provided-service logging-route-service -r https://logging-router.scapp.io
+# Note: any URLS that will be bound to the `logging-route-service` will be forwarded to the URL specified after `-r`
+cf bind-route-service scapp.io logging-route-service --hostname my-main-app
+# Note: `my-main-app` routes will now be redirected through the `logging-route-service`
+```
+
 ## Environment Variables
 
 ### ROUTE_SERVICE_SLEEP_MILLI
