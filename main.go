@@ -37,15 +37,15 @@ func main() {
     if len(env_limit) != 0 {
         isIP := regexp.MustCompile(`^[0-9.]+$`).MatchString
 
-        log.Printf("[ROUTE-SERVICE] Limiting ip access to: [%d]\n", env_limit)
+        log.Printf("[ROUTE-SERVICE] Limiting ip access to: [%v]\n", env_limit)
         access_list = strings.Split(env_limit, " ")
         for _, v := range access_list {
             if (!isIP(v) || strings.Count(v, ".") != 3) {
-                log.Printf("[ROUTE-SERVICE] Resolving ip for: [%d]\n", v)
+                log.Printf("[ROUTE-SERVICE] Resolving ip for: [%v]\n", v)
                 addr, err := net.LookupHost(v)
                 log.Printf("[ROUTE-SERVICE] Error ? ", err)
                 for k, a := range addr {
-                    log.Printf("[ROUTE-SERVICE] IP " + string(k) + ": " + string(a))
+                    log.Printf("[ROUTE-SERVICE] IP#%v: " + string(a), k)
                     access_list = append(access_list, a)
                 }
             }
