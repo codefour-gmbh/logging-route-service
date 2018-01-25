@@ -30,22 +30,22 @@ func main() {
         skipSslValidation bool
         err               error
     )
-    
+
     log.SetOutput(os.Stdout)
-    
+
     env_limit := os.Getenv("ACCESS_LIST")
     if len(env_limit) != 0 {
         isIP := regexp.MustCompile(`^[0-9.]+$`).MatchString
-        
-        log.Printf("Limiting ip access to: [%d]\n", env_limit)
+
+        log.Printf("[ROUTE-SERVICE] Limiting ip access to: [%d]\n", env_limit)
         access_list = strings.Split(env_limit, " ")
         for _, v := range access_list {
             if (!isIP(v) || strings.Count(v, ".") != 3) {
-                log.Printf("Resolving ip for: [%d]\n", v)
+                log.Printf("[ROUTE-SERVICE] Resolving ip for: [%d]\n", v)
                 addr, err := net.LookupHost(v)
-                log.Printf("Error ? ", err)
+                log.Printf("[ROUTE-SERVICE] Error ? ", err)
                 for k, a := range addr {
-                    log.Printf("IP " + string(k) + ": " + string(a))
+                    log.Printf("[ROUTE-SERVICE] IP " + string(k) + ": " + string(a))
                     access_list = append(access_list, a)
                 }
             }
@@ -140,24 +140,25 @@ func NewLoggingRoundTripper(accessList []string, skipSslValidation bool) *Loggin
 func (lrt *LoggingRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
     var err error
     var res *http.Response
-    
+
     forwardedFOR := request.Header.Get(FORWARDED_FOR_HEADER)
     remoteIP := strings.Split(forwardedFOR, ", ")[0]
 
     log.Println("")
-    log.Printf("Remote Address: %#v\n", remoteIP)
-    
+    log.Printf("[ROUTE-SERVICE] Remote Address: %#v\n", remoteIP)
+
     if (len(lrt.limit) > 0) && (!contains(lrt.limit, remoteIP)) {
         log.Println("")
-        log.Printf("Denying request for [%s]\n", remoteIP)
+        log.Printf("[ROUTE-SERVICE] Did not find remote IP in: [%#v]\n", lrt.limit)
         resp := &http.Response{
             StatusCode: 403,
             Body:       ioutil.NopCloser(bytes.NewBufferString("Forbidden")),
         }
+        log.Printf("[ROUTE-SERVICE] Denying request for [%s]\n", remoteIP)
         return resp, nil
     }
-    
-    log.Printf("Forwarding to: %s\n", request.URL.String())
+
+    log.Printf("[ROUTE-SERVICE] Forwarding to: %s\n", request.URL.String())
     res, err = lrt.transport.RoundTrip(request)
     if err != nil {
         return nil, err
